@@ -1,41 +1,43 @@
 # Web MCP Relay
 
-Experimental Chrome extension connecting a selected page's native WebMCP tools to remote MCP clients through a self-hosted Cloudflare relay. Apache-2.0; see LICENSE. All project-authored deliverables use English.
+Experimental Chrome extension bridging native WebMCP tools to remote MCP clients through your own Cloudflare relay. Apache-2.0. Project deliverables use English.
 
-## Layout and status
+## Layout
 
-- extension/: unpacked Manifest V3 extension, no build step.
-- relay/: independently deployable Worker and Durable Object.
+- extension/: Manifest V3 extension; load unpacked, no build step.
+- relay/: independently deployable Cloudflare Worker and Durable Object.
 - Root package.json/wrangler.jsonc: full-repository deployment entrypoint.
 
-This is an experimental implementation, not a browser/cloud end-to-end verified release. Native document.modelContext.getTools()/executeTool() must be available. No legacy testing API, polyfill, DOM automation or custom-registry bypass is installed.
+## Setup and normal use
 
-## Three-step setup
+Load extension/ using chrome://extensions, then open a trusted WebMCP webpage and click the extension icon. Native document.modelContext.getTools()/executeTool() is required; older APIs are not emulated. Tool discovery is read-only and local.
 
-1. Prepare: a random OWNER_SECRET is prepared before deployment. Copy secret & deploy opens the official Cloudflare flow with the source repository included. Paste the same value into OWNER_SECRET when prompted, or add it under Worker Settings > Variables and Secrets afterward.
-2. Connect: wait for Success! Build completed. in the build log. Copy the HTTPS URL directly below Deployed web-mcp-relay triggers (or the renamed Worker label), paste the base URL without /mcp and select Verify & connect. This checks health, native WebMCP and WebSocket authentication.
-3. Ready: add the displayed /mcp URL to ChatGPT with authentication None for this MVP. Verify list_browser_tools/call_browser_tool. Pass the secret session_key from this control window, then use returned tool_id and snapshot values. No old PoC pairing card is used.
+First-time setup prepares OWNER_SECRET before opening Cloudflare, copies it, and opens the preselected source. Configure the same value in Cloudflare. Wait for Success! Build completed. and copy the HTTPS URL below Deployed web-mcp-relay triggers (use the actual name if renamed). Enter the base URL without /mcp and verify/connect.
 
-Deploy source: https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2Fckfun0skf%2Fweb-mcp-relay
+Once credentials are configured, the popup opens a dashboard, not the deployment wizard. Settings edits the relay/secret. Only an explicitly confirmed Reset setup clears credentials and returns to onboarding. There is no Back button to re-enter deployment during ordinary use.
 
-Both root deployment and standalone relay/ deployment are supported. See [Deployment](docs/DEPLOYMENT.md) and [Repository visibility](docs/REPOSITORY-VISIBILITY.md). User-created copies do not automatically receive upstream changes.
+Add the displayed /mcp URL to ChatGPT as a custom remote MCP connection, authentication None for this MVP. Use list_browser_tools with session_key, then call_browser_tool with its tool_id, snapshot and arguments. Remote-client availability and approval policies are independent.
 
-## Load the extension
+## Background sessions
 
-Open chrome://extensions, enable Developer mode and Load unpacked from extension/. Open a trusted WebMCP page and click the toolbar on that page. The control window remains bound to that tab. For web-mcp-poc, enable its execution consent first. Keep the control window open. There is no docking, website iframe or ChatGPT embedding. After upgrading from 0.2, reload target pages to remove any previously injected dock. Legacy dock files are inert and are not exposed by the manifest.
+The service worker owns WebSocket, session, approval and native execution state. Closing the toolbar popup does not disconnect. A 20-second WebSocket keepalive supports the Chrome 116+ service-worker lifecycle; native WebMCP may require a newer browser. No hidden visible controller window is needed.
 
-## Credentials and trust are separate
+Session keys are saved in chrome.storage.session, not website storage. Same-tab, same-origin page refresh preserves the key, revokes trust, rejects pending approvals and rebinds the new document. Document identity is included in snapshots, invalidating old-document calls. If WebMCP is not ready after load, execution remains unavailable; Resume reinspects and can reuse the unexpired key.
 
-OWNER_SECRET (not OWNER_KEY) is the unchanged relay environment variable. Use 32-256 letters, digits, underscores or hyphens. Credentials are saved per exact HTTPS origin in chrome.storage.local with TRUSTED_CONTEXTS access. They survive browser restarts, are not synced by this implementation and are not an encrypted OS vault. Never commit credentials or send them to website scripts. Forget saved secret disconnects and removes that relay's saved credential, not its Cloudflare secret. A prepared secret without an entered relay origin is kept only in the current window.
+Resume after network loss or service-worker restart is explicit, never a replay of tool calls. It reuses the key only for the same relay/tab/origin before its original local deadline. The existing relay assigns its own deadline per socket; the background enforces the earlier original deadline and closes at expiry. Resume can fail while an old socket is closing. Browser restart/extension reload clears session storage. Browser termination, network loss and forceful worker shutdown are not guaranteed away by keepalive.
 
-Each connection gets a new one-hour session_key. Treat it as a bearer capability. Remembering OWNER_SECRET does not preserve an old connection or grant tool-execution trust.
+End session, target-tab close, expiry, cross-origin navigation and Reset clear the saved session and close its route. Switching active tabs never retargets a live session automatically. Session keys are secret capabilities and must not be shared publicly.
 
-Ask-every-time is the default. Explicitly enabling Trust this page for this session allows ALL native tools in the selected document, including writes/deletes/submissions, without extension prompts. It does not disable approvals imposed by the remote client or browser. Trust is never persisted and is revoked on navigation/reload, disconnect, expiry or closing the control window. Pause blocks new tool calls and revokes trust; resume returns to ask-every-time. Already-started code may continue and effects cannot be rolled back.
+## Credentials and trust
 
-## Limits and security
+OWNER_SECRET remains the relay variable name. Credentials are stored by exact HTTPS origin in chrome.storage.local with TRUSTED_CONTEXTS access; no Chrome Sync or encrypted OS vault is claimed. Secrets never enter page DOM/MAIN world. Popup and background communicate only through an allowlisted extension-owned message handler. No web-accessible UI resources are declared. Optional host access is requested for the selected relay origin; page tool access uses activeTab and scripting.
 
-One tab per control window; one pending relay operation per session; 60-second relay wait; one-hour expiry. Current wire/registry/result checks use JavaScript string length (128,000/64,000/64,000 respectively), not precise UTF-8 bytes or KiB. The relay also has its own response/body limits. Metadata snapshots detect forwarded metadata changes, not changes to underlying code with identical metadata. Main-world page code and tool output are untrusted; trust the website itself. Only top-document selection is supported, with reported cross-origin tools filtered; tools without a reported origin are accepted by the current adapter.
+Explicit Trust this page for this session allows ALL tools, including writes/deletes/submissions, without extension approval. It is not restored from storage and is revoked on reload/navigation, detach and expiry. Pause revokes trust. Ask-every-time requests appear in the popup; a toolbar ! badge indicates pending approval. No approval window is automatically opened. Closing the popup does not reject pending approval immediately; it times out after 45 seconds.
 
-Website access uses activeTab and scripting. The health check requests optional host access for the selected relay origin (origin-wide permission, not only /health). No debugger permission is requested. app.html is not web-accessible, and no generic storage-reading message API is provided. Public health/tool discovery does not itself grant browser access. OWNER_SECRET authorizes browser connections; session_key authorizes routing. Neither eliminates public-endpoint abuse or guarantees free-tier usage.
+No docking or ChatGPT iframe embedding. app.html is a retirement notice; old app.js/setup.js/dock files are inert legacy assets and are not referenced by the active UI or manifest. Reload old webpages and close legacy controllers when upgrading.
 
-See [UX and acceptance tests](docs/UX.md). Do not use consequential tools or real sensitive data until you have reviewed and tested the implementation.
+## Limits and verification
+
+One live session per extension instance, at most 50 same-origin/top-document tools, one pending relay operation and no automatic retries of writes. Metadata is untrusted. Snapshot checks do not prove tool implementation immutability. Limits use JavaScript string length, not KiB. Cancellation cannot stop arbitrary already-started website code or undo effects. Authentication does not eliminate public-endpoint quota abuse.
+
+This migration is not browser/cloud end-to-end verified. See [UX](docs/UX.md), [Popup](docs/POPUP.md), [Deployment](docs/DEPLOYMENT.md) and [Repository visibility](docs/REPOSITORY-VISIBILITY.md). Both root and standalone relay deployments remain supported. No relay source/protocol change is required by this migration.

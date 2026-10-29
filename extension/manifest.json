@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
+  "minimum_chrome_version": "116",
   "name": "Web MCP Relay (Experimental)",
-  "version": "0.3.1",
-  "description": "Discover native WebMCP tools in a toolbar popup and connect through your private relay.",
+  "version": "0.4.0",
+  "description": "Discover native WebMCP tools and keep private relay sessions running independently of the popup.",
   "permissions": ["activeTab", "scripting", "storage"],
   "optional_host_permissions": ["https://*/*"],
-  "background": { "service_worker": "background.js" },
-  "action": { "default_title": "Inspect WebMCP tools", "default_popup": "popup.html" }
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_title": "Web MCP Relay", "default_popup": "popup.html" }
 }
