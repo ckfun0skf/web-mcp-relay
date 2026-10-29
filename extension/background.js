@@ -123,3 +123,4 @@ chrome.tabs.onUpdated.addListener((tabId, change) => {
   }).catch(() => {});
 });
 chrome.tabs.onRemoved.addListener(tabId => { ready.then(() => { if (session?.tabId === tabId) return end('Target tab closed.'); }).catch(() => {}); });
+export { ready, view, connect };
