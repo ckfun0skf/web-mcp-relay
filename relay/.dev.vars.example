@@ -1,0 +1,2 @@
+# Generate your own 32-256 character URL-safe secret; do not commit real credentials.
+OWNER_SECRET=replace_with_your_own_random_secret_at_least_32_chars

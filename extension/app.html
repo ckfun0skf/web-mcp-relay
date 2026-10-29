@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Web MCP Relay</title>
+<style>body{font:14px/1.5 system-ui;margin:20px}input,button,textarea{font:inherit}input,textarea{box-sizing:border-box;width:100%;padding:8px}label{display:block;margin:12px 0}button{padding:8px;margin:4px}pre{white-space:pre-wrap;overflow-wrap:anywhere}#approval{border:2px solid #b70;padding:12px}small{display:block}</style>
+<h1>Web MCP Relay</h1><p>Experimental. Keep this window open. Calls require your approval here. No ChatGPT embedding or model API is included.</p>
+<p id="target"></p><label>Private relay HTTPS base URL<input id="relay" placeholder="https://my-relay.my-account.workers.dev"></label><label>Relay OWNER_SECRET (not a Cloudflare API token)<input id="owner" type="password" autocomplete="off"></label>
+<button id="connect">Connect</button><button id="stop">Disconnect</button><p id="status" role="status">Not connected</p>
+<label>MCP URL<input id="mcp" readonly></label><label>Session key (secret capability; share only with your MCP client)<input id="session" type="password" readonly></label><button id="copy">Copy session key</button>
+<section id="approval" hidden><h2>Approve one native WebMCP call?</h2><pre id="details"></pre><button id="allow">Allow once</button><button id="deny">Deny</button><small>Page code may access data and make irreversible changes. Closing this connection cannot undo or stop already-started code.</small></section>
+<pre id="log"></pre><script type="module" src="app.js"></script></html>
