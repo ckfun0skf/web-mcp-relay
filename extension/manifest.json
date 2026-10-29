@@ -1,9 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Web MCP Relay (Experimental)",
-  "version": "0.1.0",
-  "description": "Bridge a selected page's native WebMCP tools to a self-hosted MCP relay.",
+  "version": "0.2.0",
+  "description": "Bridge native WebMCP tools through your private relay. Guided setup and page docking.",
   "permissions": ["activeTab", "scripting", "storage"],
+  "optional_host_permissions": ["https://*/*"],
   "background": { "service_worker": "background.js" },
-  "action": { "default_title": "Connect this page to Web MCP Relay" }
+  "action": { "default_title": "Open Web MCP Relay" },
+  "web_accessible_resources": [{ "resources": ["dock.html", "dock.js", "style.css"], "matches": ["https://*/*", "http://*/*"] }]
 }
