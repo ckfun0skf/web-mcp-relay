@@ -1,0 +1,15 @@
+# Toolbar popup and local tool discovery (0.3.1)
+
+Clicking the extension icon now opens popup.html through action.default_popup. It no longer automatically opens the independent controller. The popup scans the active HTTP(S) top-level tab using the user's activeTab grant and chrome.scripting in MAIN world. Discovery does not need relay credentials or a relay connection and never executes a website tool.
+
+The UI distinguishes unavailable native discovery API, an available API with zero tools, discovered tools and discovery failure. It displays tool names, descriptions, named parameter types/required flags, complete input schema within the overall metadata limit, and optional annotations labeled as hints rather than permissions. Up to 50 tools are shown with an explicit count if more exist. Descriptions/names have display length limits. Tools with a reported different origin are filtered; absent origin is accepted as in the current relay adapter. This does not claim discovery across all frames.
+
+Discovery runs on popup open and on Refresh tools. It is not a browser-wide background detector and does not keep an automatically updated persistent badge. Check timestamps and refresh after page registry changes. Data is rendered using textContent, never website-supplied HTML. Metadata remains untrusted and a listed tool does not prove safe or successful execution.
+
+Open connection setup is an explicit action that opens/focuses the existing app.html controller for that inspected tab. The background validates the sender, origin and inspected documentId before opening it. Navigation requires a new scan; it does not silently retarget the preview. Website scripts cannot access this message interface through external messaging. No new manifest permissions, web-accessible resources or credential exposure are added.
+
+Important scope: this release changes the toolbar entrypoint and adds tool preview. It does NOT migrate the WebSocket engine into a service worker. The existing controller must still remain open for remote sessions; closing this toolbar popup does not intentionally close that controller. A toolbar popup automatically closes when focus leaves it. Native browser restrictions, page consent and remote-client approval policies still apply.
+
+The three-step setup, local OWNER_SECRET storage, per-document session trust, Pause and Disconnect remain in the controller. No dock mode is restored. Existing README and UX references to a control window describe that connection controller; toolbar icon behavior is superseded by this document.
+
+Acceptance tests (not yet browser-verified): icon opens toolbar popup without a new window; active-tab discovery; unsupported/restricted page; no tools; multiple tools and nested schemas; large metadata; refresh after registry changes; navigation race; safe rendering of HTML-like descriptions; explicit controller open/focus; preserved existing connection after closing preview; unchanged manual and trusted-session tool execution.

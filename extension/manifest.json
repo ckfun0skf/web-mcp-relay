@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Web MCP Relay (Experimental)",
-  "version": "0.3.0",
-  "description": "Connect native WebMCP tools through your private relay with guided setup.",
+  "version": "0.3.1",
+  "description": "Discover native WebMCP tools in a toolbar popup and connect through your private relay.",
   "permissions": ["activeTab", "scripting", "storage"],
   "optional_host_permissions": ["https://*/*"],
   "background": { "service_worker": "background.js" },
-  "action": { "default_title": "Open Web MCP Relay" }
+  "action": { "default_title": "Inspect WebMCP tools", "default_popup": "popup.html" }
 }
