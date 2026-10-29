@@ -1,0 +1,17 @@
+{
+  "name": "web-mcp-relay-workspace",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "workspaces": ["relay"],
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": { "wrangler": "4.155.0" },
+  "cloudflare": {
+    "bindings": {
+      "OWNER_SECRET": { "description": "Generate a random 32-256 character secret using only letters, digits, underscores and hyphens. Use the same value in the extension. This is NOT a Cloudflare API token." }
+    }
+  }
+}
