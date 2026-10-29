@@ -2,11 +2,11 @@
   "manifest_version": 3,
   "minimum_chrome_version": "127",
   "name": "Web MCP Relay (Experimental)",
-  "version": "0.5.2",
-  "description": "Discover WebMCP tools with optional automatic connection hints and background relay sessions.",
+  "version": "0.6.0",
+  "description": "Discover WebMCP tools with scoped agent permissions and background relay sessions.",
   "permissions": ["activeTab", "scripting", "storage"],
   "optional_host_permissions": ["https://*/*", "http://*/*"],
   "background": { "service_worker": "hint-background.js", "type": "module" },
   "options_ui": { "page": "hint-options.html", "open_in_tab": true },
-  "action": { "default_title": "Web MCP Relay — right-click for hint options", "default_popup": "popup.html" }
+  "action": { "default_title": "Web MCP Relay", "default_popup": "popup.html" }
 }

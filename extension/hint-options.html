@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Web MCP Relay — Hint Settings</title><link rel="stylesheet" href="style.css"></head><body><main>
-<header class="page-header"><h1>Connection hints</h1><a href="connector-help.html" target="_blank" rel="noopener">Help ↗</a></header>
-<section class="card"><label class="check"><input id="enabled" type="checkbox"> Show WebMCP connection hints</label><div class="row"><button id="save">Save preference</button></div></section>
-<section class="card"><h2>Website access</h2><p class="hint">Allow a site to show automatic hints. Tool previews never execute tools.</p><label for="site">Site origin</label><div class="field-action"><input id="site" type="url" placeholder="https://example.com"><button id="grant-site" class="primary">Enable site</button></div><details><summary>All-site access &amp; permissions</summary><button id="grant-all">Enable on all HTTP(S) sites</button><p class="hint">Optional. Disabling hints does not revoke host access or disconnect sessions. Manage site permissions in Chrome extension settings.</p></details></section>
-<p id="status" role="status"></p><p class="hint">Relay credentials and session controls stay in the toolbar popup.</p>
-</main><script src="hint-options.js"></script></body></html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Web MCP Relay — Options</title><link rel="stylesheet" href="style.css"></head><body><main>
+<header class="page-header"><h1>Options &amp; permissions</h1><a href="connector-help.html" target="_blank" rel="noopener">Help ↗</a></header>
+<section class="card"><label class="check"><input id="enabled" type="checkbox"> Show WebMCP connection hints</label><button id="save">Save preference</button></section>
+<section class="card"><h2>Website access</h2><p class="hint">Discovery access is separate from agent execution trust.</p><label for="site">Site origin</label><div class="field-action"><input id="site" type="url" placeholder="https://example.com"><button id="grant-site" class="primary">Enable site</button></div><details><summary>All-site access &amp; permissions</summary><button id="grant-all">Enable on all HTTP(S) sites</button><p class="hint">Optional. Revoke host access through Chrome extension settings.</p></details></section>
+<p id="status" role="status"></p>
+</main><script src="hint-options.js"></script><script type="module" src="trusted-sites.js"></script></body></html>
