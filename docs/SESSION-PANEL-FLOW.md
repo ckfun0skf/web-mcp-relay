@@ -1,0 +1,11 @@
+# Unified session panel (0.8.2)
+
+Add Agent Session and the page hint now register/persist the new session, open its private panel, and only then start asynchronous relay connection. This removes the gap where connection/permission-window failures left the user with Session added but no visible next step. Local native discovery and record persistence still happen before opening the panel; native discovery errors are reported at the initiating UI.
+
+The panel shows Connecting, a visible failure reason and Retry connection, the three permission choices, and then key/MCP copying in the same page. Existing saved website trust skips a redundant choice. Agent activity is not required to copy a ready session key. Session-handoff withholds the key until the connection/document is ready and a permission mode has been selected. Pausing execution does not itself require a new key.
+
+The old automatic standalone trust-window callback is disabled. Explicit Permissions reopens the same session panel in permission-edit mode. Cancel is available only when a mode was already chosen. Closing a pending-choice panel leaves execution blocked; closing a ready panel does not disconnect. Every row in the popup and manager has Open session independent of relay readiness. Copy stays disabled until ready. Disconnected rows show their actual connection error.
+
+Panel opening focuses a tracked session window/tab where possible. A failed small-window creation falls back to an extension-owned browser tab; if both fail, the session remains listed with a visible handoff error and Open session retry. No key or OWNER_SECRET is placed in a page URL or website DOM. No automatic write replay or trust is added. Retry keeps the same session record/key and does not replace other sessions.
+
+Six session-flow helper tests passed locally: open-before-start, non-blocking pending handshake, explicit panel failure, handled startup rejection, permission-gated copy and copy without agent activity. Run node --test extension/session-flow.test.mjs. Private-panel JavaScript syntax and statically referenced element IDs were checked; actual Chrome window/tab fallback, full worker/UI integration, permission prompts and real relay connections remain unverified. No relay source changes or new automatic CI workflows. Reload local extension 0.8.2 and refresh existing pages/panels.
