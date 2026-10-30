@@ -1,15 +1,19 @@
 const $ = id => document.getElementById(id);
 const sessionId = new URLSearchParams(location.search).get('session');
+const activityFormat = import('./agent-activity.mjs');
+const agentNote = document.createElement('p'); agentNote.className = 'hint'; agentNote.setAttribute('role', 'status'); $('target').after(agentNote);
 let current, polling = false;
 function clearSession() { current = null; $('key').value = ''; $('mcp').value = ''; $('copy-key').disabled = true; $('copy-details').disabled = true; }
 async function update() {
   if (polling) return; polling = true;
   try {
+    const { formatAgentActivity } = await activityFormat;
     const r = await chrome.runtime.sendMessage({ type: 'session-handoff', sessionId }); if (!r?.ok) throw new Error(r?.error || 'Background unavailable.');
-    const s = r.value; $('status').textContent = s.status; $('target').textContent = s.origin || ''; $('expiry').textContent = s.ended ? '' : 'No automatic expiry · End session in the toolbar popup';
+    const s = r.value; $('status').textContent = s.ended ? s.status : 'Relay · ' + s.status; $('target').textContent = s.name ? s.name + ' · ' + s.origin : s.origin || ''; $('expiry').textContent = s.ended ? '' : 'No automatic expiry · End session in the toolbar popup';
+    const label = formatAgentActivity(s); agentNote.textContent = s.ended ? '' : label.startsWith('Agent activity detected') ? 'Agent activity detected ✓ Your agent has reached this session.' : 'Agent · ' + label;
     if (s.ended || !s.connected) { clearSession(); return; }
     current = s; $('key').value = s.key; $('mcp').value = s.mcp; $('copy-key').disabled = false; $('copy-details').disabled = false;
-  } catch (error) { clearSession(); $('status').textContent = error.message; }
+  } catch (error) { clearSession(); agentNote.textContent = ''; $('status').textContent = error.message; }
   finally { polling = false; }
 }
 function copy(details) {

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "minimum_chrome_version": "127",
   "name": "Web MCP Relay (Experimental)",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Independent agent sessions for WebMCP pages, with scoped permissions and session management.",
   "permissions": ["activeTab", "scripting", "storage"],
   "optional_host_permissions": ["https://*/*", "http://*/*"],

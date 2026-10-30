@@ -1,4 +1,4 @@
-import { MultiEngine } from './multi-engine.mjs';
+import { ActivityEngine as MultiEngine } from './activity-engine.mjs';
 import { inspectTab, executeNative } from './native.js';
 const url = page => chrome.runtime.getURL(page);
 const panels = new Map();
@@ -26,7 +26,7 @@ chrome.runtime.onMessage.addListener((m, sender, respond) => {
     if (m.type === 'end-many') { if (!Array.isArray(m.ids)) throw new Error('Session IDs required.'); for (const id of m.ids) if (engine.items.has(id)) await engine.end(id); return {}; }
     if (m.type === 'rename') { await engine.rename(m.sessionId, m.name); return {}; }
     if (m.type === 'approve') { engine.approve(m.sessionId, m.requestId, m.choice); return {}; }
-    if (m.type === 'session-handoff') { const r = engine.items.get(m.sessionId); if (!r) return { ended: true, status: 'Session ended or replaced.' }; const connected = r.status === 'connected' && Boolean(r.binding); return { connected, status: r.paused ? 'Execution paused.' : r.status, origin: r.origin, name: r.name, scope: r.scope, needsChoice: r.needsChoice, mode: r.mode, key: connected ? r.key : '', mcp: connected ? r.relay + '/mcp' : '', deadline: null }; }
+    if (m.type === 'session-handoff') { const r = engine.items.get(m.sessionId); if (!r) return { ended: true, status: 'Session ended or replaced.' }; const connected = r.status === 'connected' && Boolean(r.binding); return { connected, status: r.paused ? 'Execution paused.' : r.status, origin: r.origin, name: r.name, scope: r.scope, needsChoice: r.needsChoice, mode: r.mode, key: connected ? r.key : '', mcp: connected ? r.relay + '/mcp' : '', deadline: null, ...engine.agent(m.sessionId) }; }
     if (m.type === 'policy-state') { const r = engine.get(m.sessionId); return { scopeId: r.scope, origin: r.origin, name: r.name }; }
     if (m.type === 'policy-choose') { if (![url('trust.html'), url('session.html')].includes(page)) throw new Error('Private permission dialog required.'); await engine.choose(m.sessionId, m.scopeId, m.mode); return {}; }
     if (m.type === 'policy-open') { const r = engine.get(m.sessionId); await chrome.windows.create({ url: url('trust.html') + '?session=' + encodeURIComponent(r.id) + '&scope=' + encodeURIComponent(r.scope), type: 'popup', width: 500, height: 450 }); return {}; }
