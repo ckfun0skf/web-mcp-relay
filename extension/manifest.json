@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "minimum_chrome_version": "127",
   "name": "Web MCP Relay (Experimental)",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Discover WebMCP tools with scoped agent permissions and background relay sessions.",
   "permissions": ["activeTab", "scripting", "storage"],
   "optional_host_permissions": ["https://*/*", "http://*/*"],

@@ -1,22 +1,21 @@
 import { inspectTab, executeNative } from './native.js';
 import { policy } from './agent-policy.js';
 const hex = b => Array.from(b, n => n.toString(16).padStart(2, '0')).join('');
-let session = null, socket = null, binding = null, paused = false, connecting = false, busy = false, pending = null, sequence = 0, heartbeat, expiryTimer, handshake;
+let session = null, socket = null, binding = null, paused = false, connecting = false, busy = false, pending = null, sequence = 0, heartbeat, handshake;
 let status = 'Not connected', activity = [];
 const ready = (async () => {
   await chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }); await chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
   const local = await chrome.storage.local.get(['relay', 'relayCredentials']); if (local.relay && local.relayCredentials?.[local.relay]) await chrome.storage.local.set({ setupComplete: true });
-  const saved = (await chrome.storage.session.get('relaySession')).relaySession; if (saved?.deadline > Date.now()) { session = saved; status = 'Disconnected. Resume to reconnect.'; } else await chrome.storage.session.remove('relaySession');
+  const saved = (await chrome.storage.session.get('relaySession')).relaySession; if (saved && /^[a-f0-9]{64}$/.test(saved.key || '')) { session = { ...saved, deadline: null }; await chrome.storage.session.set({ relaySession: session }); status = 'Disconnected. Resume to reconnect.'; } else await chrome.storage.session.remove('relaySession');
 })();
 function note(text) { activity.unshift(new Date().toISOString() + ' ' + text); activity = activity.slice(0, 40); }
 function rejectPending() { if (pending) { clearTimeout(pending.timer); pending.resolve({ allowed: false }); pending = null; } chrome.action.setBadgeText({ text: '' }).catch(() => {}); }
-function detach(text) { sequence++; clearInterval(heartbeat); clearTimeout(expiryTimer); clearTimeout(handshake); const old = socket; socket = null; old?.close(); binding = null; paused = false; connecting = false; policy.clear(); rejectPending(); status = text; }
+function detach(text) { sequence++; clearInterval(heartbeat); clearTimeout(handshake); const old = socket; socket = null; old?.close(); binding = null; paused = false; connecting = false; policy.clear(); rejectPending(); status = text; }
 async function end(text = 'Session ended.') { detach(text); session = null; await chrome.storage.session.remove('relaySession'); }
 function base(value) { const u = new URL(value); if (u.protocol !== 'https:' || u.username || u.password || u.pathname !== '/' || u.search || u.hash) throw new Error('Use an HTTPS base URL without /mcp.'); return u.origin; }
 async function view() {
-  if (session && session.deadline <= Date.now()) await end('Session expired.');
   const local = await chrome.storage.local.get(['relay', 'relayCredentials', 'setupComplete']); const draft = (await chrome.storage.session.get('setupDraft')).setupDraft || {}; const p = policy.summary();
-  return { setupComplete: Boolean(local.setupComplete), relay: local.relay || '', hasSecret: Boolean(local.relayCredentials?.[local.relay]), draft, session, connected: Boolean(socket?.readyState === WebSocket.OPEN && binding && !connecting && session?.deadline > Date.now()), transportConnected: socket?.readyState === WebSocket.OPEN, connecting, trusted: p.trusted, permissionMode: p.mode, needsTrustChoice: p.needsChoice, paused, status, documentId: binding?.documentId, pending: pending ? { id: pending.id, origin: pending.origin, tool: pending.tool, arguments: pending.arguments } : null, activity };
+  return { setupComplete: Boolean(local.setupComplete), relay: local.relay || '', hasSecret: Boolean(local.relayCredentials?.[local.relay]), draft, session, connected: Boolean(socket?.readyState === WebSocket.OPEN && binding && !connecting && session), transportConnected: socket?.readyState === WebSocket.OPEN, connecting, trusted: p.trusted, permissionMode: p.mode, needsTrustChoice: p.needsChoice, paused, status, documentId: binding?.documentId, pending: pending ? { id: pending.id, origin: pending.origin, tool: pending.tool, arguments: pending.arguments } : null, activity };
 }
 async function connect(m) {
   if (connecting) throw new Error('Connection already in progress.');
@@ -26,28 +25,29 @@ async function connect(m) {
   try {
     const response = await fetch(relay + '/health', { credentials: 'omit', redirect: 'error', signal: AbortSignal.timeout(8000) }); if (!response.ok) throw new Error('Relay HTTP ' + response.status);
     const health = await response.json(); if (health.name !== 'web-mcp-relay' || health.protocolVersion !== 1) throw new Error('Incompatible relay.');
+    if (health.sessionExpiry !== 'manual') throw new Error('Update your Cloudflare relay to support sessions without automatic expiry.');
     const selected = await inspectTab(m.tabId, m.documentId); if (!selected.available || !selected.executable) throw new Error('No executable WebMCP tools.'); if (generation !== sequence) return;
-    const reuse = oldSession && oldSession.relay === relay && oldSession.tabId === m.tabId && oldSession.origin === selected.origin && oldSession.deadline > Date.now();
-    session = reuse ? oldSession : { key: hex(crypto.getRandomValues(new Uint8Array(32))), relay, tabId: m.tabId, origin: selected.origin, deadline: Date.now() + 3600000, id: crypto.randomUUID() }; binding = selected; paused = false;
+    const reuse = oldSession && oldSession.relay === relay && oldSession.tabId === m.tabId && oldSession.origin === selected.origin;
+    session = reuse ? { ...oldSession, deadline: null } : { key: hex(crypto.getRandomValues(new Uint8Array(32))), relay, tabId: m.tabId, origin: selected.origin, deadline: null, id: crypto.randomUUID() }; binding = selected; paused = false;
     await policy.bind({ sessionId: session.id, documentId: selected.documentId, origin: session.origin }); if (generation !== sequence) return;
     await chrome.storage.session.set({ relaySession: session }); await chrome.storage.local.set({ relay, relayCredentials: { ...(local.relayCredentials || {}), [relay]: secret } });
     const route = hex(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(session.key)))); if (generation !== sequence) return;
     const ws = new WebSocket(relay.replace('https:', 'wss:') + '/browser?session=' + route, ['web-mcp-relay-v1', secret]); socket = ws; status = 'Connecting…';
     handshake = setTimeout(() => { if (socket === ws) detach('Handshake timed out. Resume to retry.'); }, 12000);
-    ws.onerror = () => { if (socket === ws) status = 'WebSocket error. Check relay credentials.'; }; ws.onclose = () => { if (socket === ws) detach('Connection lost. Resume the unexpired session.'); };
+    ws.onerror = () => { if (socket === ws) status = 'WebSocket error. Check relay credentials.'; }; ws.onclose = () => { if (socket === ws) detach('Connection lost. Resume the saved session.'); };
     ws.onmessage = async event => {
       if (socket !== ws) return; let request; try { if (typeof event.data !== 'string' || event.data.length > 128000) throw new Error(); request = JSON.parse(event.data); } catch { await end('Invalid relay frame.'); return; }
       if (request.type === 'ready') {
-        if (!session || !Number.isFinite(request.expiresAt) || request.expiresAt <= Date.now()) { await end('Session expired.'); return; }
-        clearTimeout(handshake); session.deadline = Math.min(session.deadline, request.expiresAt); connecting = false; await chrome.storage.session.set({ relaySession: session }); await chrome.storage.session.remove('setupDraft'); await chrome.storage.local.set({ setupComplete: true }); if (socket !== ws) return;
-        clearTimeout(expiryTimer); expiryTimer = setTimeout(() => end('Session expired.'), Math.max(0, session.deadline - Date.now())); clearInterval(heartbeat); heartbeat = setInterval(() => { if (socket === ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' })); }, 20000);
+        if (!session || request.expiresAt !== null) { detach('Relay does not support sessions without automatic expiry. Update the relay.'); return; }
+        clearTimeout(handshake); session.deadline = null; connecting = false; await chrome.storage.session.set({ relaySession: session }); await chrome.storage.session.remove('setupDraft'); await chrome.storage.local.set({ setupComplete: true }); if (socket !== ws) return;
+        clearInterval(heartbeat); heartbeat = setInterval(() => { if (socket === ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' })); }, 20000);
         status = policy.summary().needsChoice ? 'Connected. Choose agent permissions.' : 'Connected.'; note('Connected to ' + session.origin); if (policy.summary().needsChoice) policy.open().catch(() => { status = 'Connected. Open Agent permissions in the popup.'; }); return;
       }
       if (request.type !== 'request' || !/^[a-f0-9-]{36}$/.test(request.id || '') || !['list', 'call'].includes(request.operation)) return;
       const reply = result => { if (socket === ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'result', id: request.id, ...result })); };
       if (busy) { reply({ ok: false, error: 'BUSY. Do not automatically retry writes.' }); return; } busy = true;
       try {
-        if (connecting || !session || session.deadline <= Date.now() || !binding) throw new Error('PAGE_NOT_READY.');
+        if (connecting || !session || !binding) throw new Error('PAGE_NOT_READY.');
         const captured = { id: session.id, documentId: binding.documentId, scopeId: policy.summary().scopeId };
         const listing = await inspectTab(session.tabId, captured.documentId); if (socket !== ws || session?.id !== captured.id || binding?.documentId !== captured.documentId) throw new Error('Page/session changed.');
         if (request.operation === 'list') { reply({ ok: true, value: { origin: listing.origin, snapshot: listing.snapshot, tools: listing.tools } }); return; }
@@ -57,7 +57,7 @@ async function connect(m) {
         if (!request.arguments || typeof request.arguments !== 'object' || Array.isArray(request.arguments)) throw new Error('Arguments must be an object.');
         const toolKey = listing.metadataSnapshot + ':' + tool.tool_id; let decision = await policy.allowed(toolKey);
         if (!decision.allowed) decision = await new Promise(resolve => { const id = crypto.randomUUID(); const timer = setTimeout(rejectPending, 45000); pending = { id, origin: listing.origin, tool: tool.name, arguments: request.arguments, toolKey, scopeId: captured.scopeId, resolve, timer }; chrome.action.setBadgeBackgroundColor({ color: '#b7791f' }).catch(() => {}); chrome.action.setBadgeText({ text: '!' }).catch(() => {}); status = 'Approval required. Open the extension popup.'; });
-        const p = policy.summary(); if (!decision.allowed || paused || p.needsChoice || p.scopeId !== captured.scopeId || p.revision !== decision.revision || socket !== ws || session?.id !== captured.id || binding?.documentId !== captured.documentId || session.deadline <= Date.now()) throw new Error('Denied, paused, expired, or permissions/page changed.');
+        const p = policy.summary(); if (!decision.allowed || paused || p.needsChoice || p.scopeId !== captured.scopeId || p.revision !== decision.revision || socket !== ws || session?.id !== captured.id || binding?.documentId !== captured.documentId) throw new Error('Denied, paused, or permissions/page changed.');
         const value = await executeNative(session.tabId, listing, { tool_id: request.tool_id, arguments: request.arguments }); reply({ ok: true, value }); note('Completed ' + tool.name); status = 'Connected.';
       } catch (error) { reply({ ok: false, error: String(error.message || error).slice(0, 1500) }); note('Rejected/failed: ' + String(error.message || error)); } finally { busy = false; }
     };
